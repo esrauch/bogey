@@ -11,6 +11,7 @@ export type GamePhase =
   | 'player_turn'
   | 'bogey_turn'
   | 'bogey_place'
+  | 'bogey_loss'
   | 'game_over'
   | 'game_won';
 
@@ -210,8 +211,8 @@ export function drawBogeyCard(state: GameState): Card | null {
 
   // Check if bogey card can be placed at all
   if (!canBogeyPlay(card, state.columns)) {
-    state.phase = 'game_over';
-    state.message = "The bogey's card can't be placed! Game over.";
+    state.phase = 'bogey_loss';
+    state.message = "The bogey's card can't be placed! Click to continue.";
   }
 
   return card;

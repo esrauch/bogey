@@ -165,8 +165,8 @@ export function drawBogeyCard(state) {
     state.phase = 'bogey_place';
     // Check if bogey card can be placed at all
     if (!canBogeyPlay(card, state.columns)) {
-        state.phase = 'game_over';
-        state.message = "The bogey's card can't be placed! Game over.";
+        state.phase = 'bogey_loss';
+        state.message = "The bogey's card can't be placed! Click to continue.";
     }
     return card;
 }

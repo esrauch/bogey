@@ -43,6 +43,11 @@ function handleClick(x, y) {
         return;
     }
     // ── End screens ───────────────────────────────────────────
+    if (phase() === 'bogey_loss') {
+        state.phase = 'game_over';
+        state.message = "Game over.";
+        return;
+    }
     if (phase() === 'game_over' || phase() === 'game_won') {
         const btn = renderer.hitTestButton(x, y);
         if (btn?.id === 'restart') {
@@ -285,7 +290,7 @@ function update() {
             const card = drawBogeyCard(state);
             if (card) {
                 playCardFlip();
-                if (phase() === 'game_over') {
+                if (phase() === 'bogey_loss') {
                     playLose();
                 }
             }

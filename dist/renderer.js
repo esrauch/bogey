@@ -440,14 +440,21 @@ export class Renderer {
                 type: 'hand', index: i,
             });
         }
-        // ── Bogey's card (floating, during bogey_place) ───────────
-        if (state.phase === 'bogey_place' && state.bogeyCard) {
+        // ── Bogey's card (floating, during bogey_place or bogey_loss) ───────────
+        if ((state.phase === 'bogey_place' || state.phase === 'bogey_loss') && state.bogeyCard) {
             const bx = logicalW / 2 - CARD_W / 2;
             const by = handY - CARD_W - 20;
-            ctx.fillStyle = 'rgba(255,255,255,0.5)';
-            ctx.font = "12px 'Inter', sans-serif";
             ctx.textAlign = 'center';
-            ctx.fillText("Bogey's card — tap a row", logicalW / 2, by - 8);
+            if (state.phase === 'bogey_place') {
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.font = "12px 'Inter', sans-serif";
+                ctx.fillText("Bogey's card — tap a row", logicalW / 2, by - 8);
+            }
+            else {
+                ctx.fillStyle = '#e74c3c';
+                ctx.font = "bold 13px 'Inter', sans-serif";
+                ctx.fillText("No moves for Bogey! Tap to continue...", logicalW / 2, by - 8);
+            }
             this.drawCardFace(bx, by, state.bogeyCard, { bogeyCard: true, compact: true });
         }
         // ── Action buttons ────────────────────────────────────────
