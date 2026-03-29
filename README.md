@@ -1,6 +1,6 @@
 # The Bogey
 
-A solitaire card game by Katharine Turner, built with TypeScript and HTML5 Canvas.
+A solitaire card game built with TypeScript and HTML5 Canvas.
 
 ## Prerequisites
 
@@ -52,3 +52,5 @@ bogey/
 ## Game Rules
 
 See [RULES.md](RULES.md) for the complete rules.
+
+Credit to Katharine Turner for the original game design as published at https://boardgamegeek.com/boardgame/202723/the-bogey
