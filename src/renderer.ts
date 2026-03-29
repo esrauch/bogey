@@ -51,6 +51,18 @@ export interface CardHitArea {
   index: number; // hand index or column index
 }
 
+export interface FlyingCard {
+  card: Card;
+  startX: number; startY: number;
+  endX: number; endY: number;
+  currentX: number; currentY: number;
+  startTime: number;
+  duration: number;
+  compact: boolean;
+  scale: number;
+  faceDown: boolean;
+}
+
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
@@ -58,6 +70,7 @@ export class Renderer {
   buttons: ButtonRect[] = [];
   cardHitAreas: CardHitArea[] = [];
   discardPileArea: { x: number; y: number; w: number; h: number } | null = null;
+  flyingCards: FlyingCard[] = [];
   private noisePattern: CanvasPattern | null = null;
   private frameCount = 0;
 
@@ -397,7 +410,7 @@ export class Renderer {
     }
   }
 
-  renderGame(state: GameState, selectedHandIndex: number | null, placingHandIndex: number | null): void {
+  renderGame(state: GameState, selectedHandIndex: number | null, placingHandIndex: number | null, dealAnimating: boolean = false): void {
     const ctx = this.ctx;
     const { logicalW, logicalH } = this.layout;
 
@@ -531,11 +544,18 @@ export class Renderer {
     ctx.textAlign = 'left';
     ctx.fillText(`Hand (${state.hand.length}/${state.handSize})`, handAreaX, handY - 8);
 
+    // Draw hand cards. If dealing animation is active, skip cards still in flight to avoid duplicates,
+    // but render cards already landed in hand so they don't disappear at final animation frame.
+    const flyingCardIds = new Set(this.flyingCards.map(fc => fc.card.id));
     for (let i = 0; i < state.hand.length; i++) {
+      const card = state.hand[i];
+      if (dealAnimating && flyingCardIds.has(card.id)) {
+        continue;
+      }
       const hx = handAreaX + i * handSpacing;
       const isSelected = selectedHandIndex === i;
       const isPlacing = placingHandIndex === i;
-      this.drawCardFace(hx, handY, state.hand[i], {
+      this.drawCardFace(hx, handY, card, {
         selected: isSelected || isPlacing,
       });
       this.cardHitAreas.push({
@@ -609,6 +629,86 @@ export class Renderer {
     }
 
     this.frameCount++;
+  }
+
+  addFlyingCard(card: Card, startX: number, startY: number, endX: number, endY: number, opts?: {
+    duration?: number; compact?: boolean; scale?: number; faceDown?: boolean;
+  }): void {
+    this.flyingCards.push({
+      card, startX, startY, endX, endY,
+      currentX: startX, currentY: startY,
+      startTime: performance.now(),
+      duration: opts?.duration ?? 250,
+      compact: opts?.compact ?? false,
+      scale: opts?.scale ?? 1,
+      faceDown: opts?.faceDown ?? false,
+    });
+  }
+
+  updateFlyingCards(): void {
+    const now = performance.now();
+    this.flyingCards = this.flyingCards.filter(fc => {
+      const elapsed = now - fc.startTime;
+      const t = Math.min(elapsed / fc.duration, 1);
+      // easeOutCubic
+      const e = 1 - Math.pow(1 - t, 3);
+      fc.currentX = fc.startX + (fc.endX - fc.startX) * e;
+      fc.currentY = fc.startY + (fc.endY - fc.startY) * e;
+      return t < 1;
+    });
+  }
+
+  drawFlyingCards(): void {
+    for (const fc of this.flyingCards) {
+      if (fc.faceDown) {
+        this.drawCardBack(fc.currentX, fc.currentY, fc.scale, fc.compact);
+      } else {
+        this.drawCardFace(fc.currentX, fc.currentY, fc.card, {
+          compact: fc.compact,
+          scale: fc.scale,
+        });
+      }
+    }
+  }
+
+  hasFlyingCards(): boolean {
+    return this.flyingCards.length > 0;
+  }
+
+  /** Get screen position of a hand card by index */
+  getHandCardPos(handIndex: number, handLength: number): { x: number; y: number } {
+    const deckX = 10;
+    const handAreaX = deckX + CARD_W + 15;
+    const { logicalW } = this.layout;
+    const handSpacing = Math.min(CARD_W + 12, (logicalW - handAreaX - 20) / Math.max(handLength, 1));
+    return { x: handAreaX + handIndex * handSpacing, y: this.layout.handStartY };
+  }
+
+  /** Get screen position for placing a card at the end of a column row */
+  getColumnPos(colIndex: number, cardCountInCol: number, totalCols: number): { x: number; y: number } {
+    const startX = this.layout.columnsStartX;
+    const startY = this.layout.columnsStartY;
+    const handY = this.layout.handStartY;
+    const availableH = handY - startY - 20;
+    const totalRows = Math.max(totalCols + 1, 1);
+    const maxRowH = CARD_W + ROW_GAP;
+    const rowH = Math.min(maxRowH, availableH / totalRows);
+    const cardScale = Math.min(1, (rowH - ROW_GAP) / CARD_W);
+    const labelW = 10;
+    const rowStartX = startX + labelW;
+    const ry = startY + colIndex * rowH;
+    const cx = rowStartX + cardCountInCol * ROW_OFFSET_X * cardScale;
+    return { x: cx, y: ry };
+  }
+
+  /** Get screen position of the deck */
+  getDeckPos(): { x: number; y: number } {
+    return { x: 10, y: this.layout.handStartY };
+  }
+
+  /** Get screen position of the discard pile */
+  getDiscardPos(): { x: number; y: number } {
+    return { x: 10, y: this.layout.handStartY + CARD_W + 16 };
   }
 
   renderEndScreen(state: GameState): void {

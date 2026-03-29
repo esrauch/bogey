@@ -88,9 +88,15 @@ function handleClick(x, y) {
                 flashMessage('No discarding yet!');
             }
             else {
+                const handPos = renderer.getHandCardPos(selectedHandIndex, state.hand.length);
+                const discardPos = renderer.getDiscardPos();
+                const card = state.hand[selectedHandIndex];
                 playClick();
                 saveUndo(state);
                 discardCard(state, selectedHandIndex);
+                renderer.addFlyingCard(card, handPos.x, handPos.y, discardPos.x, discardPos.y, {
+                    duration: 200, compact: true,
+                });
                 selectedHandIndex = null;
                 return;
             }
@@ -164,8 +170,14 @@ function handleClick(x, y) {
                 }
             }
             if (card && getValidColumns(card, state.columns).includes(colIdx)) {
+                const handPos = renderer.getHandCardPos(selectedHandIndex, state.hand.length);
+                const colCardCount = colIdx < state.columns.length ? state.columns[colIdx].length : 0;
                 saveUndo(state);
                 playCardToColumn(state, selectedHandIndex, colIdx);
+                const destPos = renderer.getColumnPos(colIdx, colCardCount, state.columns.length);
+                renderer.addFlyingCard(card, handPos.x, handPos.y, destPos.x, destPos.y, {
+                    duration: 200, compact: true,
+                });
                 playCardPlace();
                 selectedHandIndex = null;
                 // Tutorial progression
@@ -182,7 +194,17 @@ function handleClick(x, y) {
         if (hit.type === 'column' || hit.type === 'new_column') {
             const colIdx = hit.index;
             if (state.bogeyCard && getValidColumns(state.bogeyCard, state.columns).includes(colIdx)) {
+                const bogeyCard = state.bogeyCard;
+                const { logicalW } = renderer.layout;
+                const handY = renderer.layout.handStartY;
+                const bx = logicalW / 2 - 35; // CARD_W/2
+                const by = handY - 70 - 20;
+                const colCardCount = colIdx < state.columns.length ? state.columns[colIdx].length : 0;
                 placeBogeyCard(state, colIdx);
+                const destPos = renderer.getColumnPos(colIdx, colCardCount, state.columns.length);
+                renderer.addFlyingCard(bogeyCard, bx, by, destPos.x, destPos.y, {
+                    duration: 250, compact: true,
+                });
                 playCardPlace();
                 // Tutorial: Show completion message after bogey places card
                 if (tutorialActive && tutorialStep === 7) {
@@ -272,9 +294,21 @@ function update() {
             drawDelayTimer--;
         }
         else if (!drawAnimating) {
+            const deckPos = renderer.getDeckPos();
             const drawn = drawCards(state);
             if (drawn.length > 0) {
                 playCardDraw();
+                drawAnimating = true;
+                // Animate each drawn card from deck to its final hand position.
+                // Use current hand length after draw so partial draws are placed correctly.
+                const totalHand = state.hand.length;
+                const firstDrawnIndex = totalHand - drawn.length;
+                for (let i = 0; i < drawn.length; i++) {
+                    const handPos = renderer.getHandCardPos(firstDrawnIndex + i, totalHand);
+                    renderer.addFlyingCard(drawn[i], deckPos.x, deckPos.y, handPos.x, handPos.y, {
+                        duration: 200 + i * 60,
+                    });
+                }
             }
             // If hand is empty and nothing to draw, still move to player_turn
             state.phase = 'player_turn';
@@ -309,6 +343,10 @@ function update() {
         }
     }
     anims.update(performance.now());
+    // Clear deal animation flag when flying cards finish
+    if (drawAnimating && !renderer.hasFlyingCards()) {
+        drawAnimating = false;
+    }
 }
 function render() {
     if (phase() === 'menu') {
@@ -318,7 +356,8 @@ function render() {
         renderer.renderEndScreen(state);
     }
     else {
-        renderer.renderGame(state, selectedHandIndex, placingHandIndex);
+        renderer.renderGame(state, selectedHandIndex, placingHandIndex, drawAnimating);
+        renderer.drawFlyingCards();
         if (tutorialActive) {
             renderer.renderTutorialOverlay(state, tutorialStep);
         }
@@ -327,6 +366,7 @@ function render() {
 function gameLoop() {
     update();
     render();
+    renderer.updateFlyingCards(); // update AFTER drawing so cards render at final position before removal
     requestAnimationFrame(gameLoop);
 }
 // ── Event listeners ─────────────────────────────────────────
