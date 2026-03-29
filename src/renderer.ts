@@ -720,6 +720,7 @@ export class Renderer {
         text = 'Your goal is to place all 52 cards into piles.\n\n' +
           'Each pile may contain only one suit.\n\n' +
           'Piles must be in descending order (K-Q-..-3-2-A).\n\n' +
+          'Aces are low. A pile doesn\'t need to be consequitive.\n\n' +
           'You may have at most 12 piles.';
         break;
       case 2:
