@@ -234,24 +234,24 @@ export class Renderer {
         }
         ctx.restore();
     }
-    drawEmptySlot(x, y, label, highlight = false, square = false) {
+    drawEmptySlot(x, y, label, highlight = false, square = false, scale = 1) {
         const ctx = this.ctx;
-        const slotW = CARD_W;
-        const slotH = square ? CARD_W : CARD_H;
+        const slotW = CARD_W * scale;
+        const slotH = (square ? CARD_W : CARD_H) * scale;
         ctx.save();
-        this.roundRect(x, y, slotW, slotH, CARD_RADIUS);
+        this.roundRect(x, y, slotW, slotH, CARD_RADIUS * scale);
         ctx.strokeStyle = highlight ? 'rgba(100, 220, 120, 0.6)' : 'rgba(255,255,255,0.15)';
         ctx.lineWidth = highlight ? 2 : 1;
         ctx.setLineDash(highlight ? [] : [4, 4]);
         ctx.stroke();
         ctx.setLineDash([]);
         if (highlight) {
-            this.roundRect(x, y, slotW, slotH, CARD_RADIUS);
+            this.roundRect(x, y, slotW, slotH, CARD_RADIUS * scale);
             ctx.fillStyle = 'rgba(100, 220, 120, 0.08)';
             ctx.fill();
         }
         ctx.fillStyle = highlight ? 'rgba(100, 220, 120, 0.7)' : 'rgba(255,255,255,0.25)';
-        ctx.font = "12px 'Inter', sans-serif";
+        ctx.font = `${12 * scale}px 'Inter', sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(label, x + slotW / 2, y + slotH / 2);
@@ -352,7 +352,7 @@ export class Renderer {
             ctx.textBaseline = 'middle';
             ctx.fillText(`${colIdx + 1}`, rowStartX - 10, ry + scaledCardSize / 2);
             if (col.length === 0) {
-                this.drawEmptySlot(rowStartX, ry, 'empty', isValid, true);
+                this.drawEmptySlot(rowStartX, ry, 'empty', isValid, true, cardScale);
                 this.cardHitAreas.push({ x: rowStartX, y: ry, w: scaledCardSize, h: scaledCardSize, type: 'column', index: colIdx });
             }
             else {
@@ -377,7 +377,7 @@ export class Renderer {
         if (state.columns.length < MAX_COLUMNS) {
             const ry = startY + state.columns.length * rowH;
             const isValid = isPlacingPhase && validCols.includes(state.columns.length);
-            this.drawEmptySlot(rowStartX, ry, '+', isValid, true);
+            this.drawEmptySlot(rowStartX, ry, '+', isValid, true, cardScale);
             this.cardHitAreas.push({
                 x: rowStartX, y: ry, w: scaledCardSize, h: scaledCardSize,
                 type: 'new_column', index: state.columns.length,
