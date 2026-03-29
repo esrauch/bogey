@@ -367,7 +367,7 @@ export class Renderer {
 
     // Title
     ctx.fillStyle = ACCENT_GOLD;
-    ctx.font = "bold 48px 'Playfair Display', Georgia, serif";
+    ctx.font = "bold 52px 'MedievalSharp', cursive";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('The Bogey', logicalW / 2, logicalH * 0.25);
@@ -411,7 +411,7 @@ export class Renderer {
 
     // Row 1: Title
     ctx.fillStyle = ACCENT_GOLD;
-    ctx.font = "bold 14px 'Inter', sans-serif";
+    ctx.font = "bold 18px 'MedievalSharp', cursive";
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText('The Bogey', 10, 16);
@@ -621,9 +621,8 @@ export class Renderer {
     const isWin = state.phase === 'game_won';
     const centerY = logicalH * 0.35;
 
-    // Title
-    ctx.fillStyle = isWin ? ACCENT_GOLD : '#d97e74';
-    ctx.font = "bold 42px 'Playfair Display', Georgia, serif";
+    ctx.fillStyle = isWin ? '#7dc28c' : '#d97e74';
+    ctx.font = "bold 46px 'MedievalSharp', cursive";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(isWin ? 'Victory!' : 'Game Over', logicalW / 2, centerY);
@@ -769,7 +768,7 @@ export class Renderer {
 
     const lines = text.split('\n');
     ctx.fillStyle = ACCENT_GOLD;
-    ctx.font = "bold 16px 'Inter', sans-serif";
+    ctx.font = "bold 18px 'MedievalSharp', cursive";
     ctx.fillText(title, panelX + 20, panelY + 30);
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.font = "13px 'Inter', sans-serif";
