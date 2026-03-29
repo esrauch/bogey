@@ -358,9 +358,13 @@ export class Renderer {
             }
             else {
                 for (let ci = 0; ci < col.length; ci++) {
+                    const card = col[ci];
+                    if (this.isCardInTransit(card.id)) {
+                        continue; // card is currently flying to this column, avoid duplicate rendering
+                    }
                     const cx = rowStartX + ci * ROW_OFFSET_X * cardScale;
                     const isLastCard = ci === col.length - 1;
-                    this.drawCardFace(cx, ry, col[ci], {
+                    this.drawCardFace(cx, ry, card, {
                         validTarget: isValid && isLastCard,
                         compact: true,
                         scale: cardScale,
@@ -409,7 +413,13 @@ export class Renderer {
         // Discard (clickable to discard selected card)
         const canDiscardCard = selectedHandIndex !== null && placingHandIndex === null && state.phase === 'player_turn';
         if (state.discardPile.length > 0) {
-            this.drawCardFace(deckX, discardY, state.discardPile[state.discardPile.length - 1], { compact: true, validTarget: canDiscardCard });
+            const topDiscard = state.discardPile[state.discardPile.length - 1];
+            if (!this.isCardInTransit(topDiscard.id)) {
+                this.drawCardFace(deckX, discardY, topDiscard, { compact: true, validTarget: canDiscardCard });
+            }
+            else {
+                this.drawEmptySlot(deckX, discardY, 'Empty', canDiscardCard, true);
+            }
         }
         else {
             this.drawEmptySlot(deckX, discardY, 'Empty', canDiscardCard, true);
@@ -530,6 +540,9 @@ export class Renderer {
             fc.currentY = fc.startY + (fc.endY - fc.startY) * e;
             return t < 1;
         });
+    }
+    isCardInTransit(cardId) {
+        return this.flyingCards.some(fc => fc.card.id === cardId);
     }
     drawFlyingCards() {
         for (const fc of this.flyingCards) {
@@ -667,21 +680,23 @@ export class Renderer {
         switch (tutorialStep) {
             case 0:
                 title = 'Welcome to The Bogey!';
-                text = 'Click anywhere to begin the interactive tutorial.';
+                text = 'Click anywhere to begin the tutorial.';
                 break;
             case 1:
                 title = 'Objective of the game';
                 text = 'Your goal is to place all 52 cards into piles.\n\n' +
-                    'Each pile may contain only one suit.\n\n' +
-                    'Piles must be in descending order (K-Q-..-3-2-A).\n\n' +
-                    'Aces are low. A pile doesn\'t need to be consequitive.\n\n' +
-                    'You may have at most 12 piles.';
+                    '• Each pile may contain only one suit.\n' +
+                    '• Piles must be in descending order (K-Q-..-3-2-A).\n' +
+                    '• Aces are low. A pile doesn\'t need to be consequitive.\n' +
+                    '• You may have at most 12 piles.';
                 break;
             case 2:
                 title = 'Your turn';
-                text = 'At the start of each turn, your hand refills\n\n' +
-                    'You may play a card into a pile or discard it.\n\n' +
-                    'You may keep cards to use in a later turn.';
+                text = 'At the start of each turn, your hand refills.\n\n' +
+                    'For every card in your hand, you have three options:\n' +
+                    '• You may play it into a pile.\n' +
+                    '• You may discard it.\n' +
+                    '• You may keep it for a later turn.';
                 break;
             case 3:
                 title = 'The Bogey';
@@ -702,10 +717,8 @@ export class Renderer {
                 break;
             case 6:
                 title = 'Step 3: Your Options';
-                text = 'You can now:\n\n' +
-                    '• Play remaining cards to piles\n' +
-                    '• Discard cards to the pile on the left\n' +
-                    '• Click End Turn to proceed';
+                text = 'Play, discard or keep the other cards as you wish.\n\n' +
+                    'Click End Turn to proceed';
                 break;
             case 7:
                 title = 'The Bogey\'s Turn';
