@@ -140,13 +140,12 @@ export function drawCards(state: GameState): Card[] {
     state.hand.push(card);
     drawn.push(card);
   }
-  state.hasDrawnThisTurn = true;
+  state.undoStack = []; // reset undo stack at start of each turn
   state.phase = 'player_turn';
   return drawn;
 }
 
 export function saveUndo(state: GameState): void {
-  if (state.hasDrawnThisTurn) return; // can't undo after drawing
   state.undoStack.push({
     hand: [...state.hand],
     columns: state.columns.map(c => [...c]),
@@ -155,7 +154,7 @@ export function saveUndo(state: GameState): void {
 }
 
 export function performUndo(state: GameState): boolean {
-  if (state.hasDrawnThisTurn || state.undoStack.length === 0) return false;
+  if (state.undoStack.length === 0) return false;
   const snap = state.undoStack.pop()!;
   state.hand = snap.hand;
   state.columns = snap.columns;

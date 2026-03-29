@@ -581,7 +581,7 @@ export class Renderer {
     }
 
     // Undo button
-    if (state.phase === 'player_turn' && !state.hasDrawnThisTurn && state.undoStack.length > 0) {
+    if (state.phase === 'player_turn' && state.undoStack.length > 0) {
       this.buttons.push({
         x: logicalW - 215, y: btnY, w: 75, h: 32,
         label: '↩ Undo', id: 'undo',
