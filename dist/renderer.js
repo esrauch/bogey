@@ -10,15 +10,15 @@ const ROW_OFFSET_X = 38; // horizontal overlap within a row
 const ROW_GAP = 4; // vertical gap between rows
 const HAND_Y_OFFSET = 70; // spacing from bottom of canvas (room for buttons below hand)
 // ── Colors ──────────────────────────────────────────────────
-const TABLE_COLOR_TOP = '#1a472a';
-const TABLE_COLOR_BOT = '#0d2818';
-const CARD_BG = '#fdf6e3';
-const CARD_BACK_1 = '#2c5f8a';
-const CARD_BACK_2 = '#1e3f5a';
-const ACCENT_GOLD = '#d4a847';
-const VALID_GLOW = 'rgba(100, 220, 120, 0.5)';
-const SELECTED_GLOW = 'rgba(212, 168, 71, 0.7)';
-const BOGEY_GLOW = 'rgba(220, 80, 80, 0.6)';
+const TABLE_COLOR_TOP = '#37505c'; // soft dusty blue-green
+const TABLE_COLOR_BOT = '#202f36'; // dark slate
+const CARD_BG = '#fcf8f2'; // warm creamy white
+const CARD_BACK_1 = '#7c98a1'; // pastel blue-grey
+const CARD_BACK_2 = '#54727b'; // deeper pastel blue-grey
+const ACCENT_GOLD = '#d4b483'; // soft gold
+const VALID_GLOW = 'rgba(155, 209, 169, 0.6)'; // soft green glow
+const SELECTED_GLOW = 'rgba(212, 180, 131, 0.8)'; // soft gold glow
+const BOGEY_GLOW = 'rgba(217, 136, 128, 0.7)'; // soft coral glow
 export class Renderer {
     constructor(canvas) {
         this.buttons = [];
@@ -268,7 +268,7 @@ export class Renderer {
         ctx.strokeStyle = 'rgba(255,255,255,0.2)';
         ctx.lineWidth = 1;
         ctx.stroke();
-        ctx.fillStyle = btn.color === '#c0392b' ? '#fff' : '#1a1a2e';
+        ctx.fillStyle = btn.color ? '#fff' : '#2d3e50';
         ctx.font = "600 13px 'Inter', sans-serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -451,7 +451,7 @@ export class Renderer {
                 ctx.fillText("Bogey's card — tap a row", logicalW / 2, by - 8);
             }
             else {
-                ctx.fillStyle = '#e74c3c';
+                ctx.fillStyle = '#d97e74';
                 ctx.font = "bold 13px 'Inter', sans-serif";
                 ctx.fillText("No moves for Bogey! Tap to continue...", logicalW / 2, by - 8);
             }
@@ -470,7 +470,7 @@ export class Renderer {
         if (state.phase === 'player_turn' || state.phase === 'bogey_place') {
             this.buttons.push({
                 x: logicalW - 80, y: 2, w: 70, h: 26,
-                label: 'Resign', id: 'resign', color: '#8b3a3a',
+                label: 'Resign', id: 'resign', color: '#c06b6b',
             });
         }
         // Undo button
@@ -508,7 +508,7 @@ export class Renderer {
         const isWin = state.phase === 'game_won';
         const centerY = logicalH * 0.35;
         // Title
-        ctx.fillStyle = isWin ? ACCENT_GOLD : '#e74c3c';
+        ctx.fillStyle = isWin ? ACCENT_GOLD : '#d97e74';
         ctx.font = "bold 42px 'Playfair Display', Georgia, serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

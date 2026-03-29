@@ -57,7 +57,16 @@ export function suitSymbol(suit: Suit): string {
 }
 
 export function suitColor(suit: Suit): string {
-  return suit === Suit.Hearts || suit === Suit.Diamonds ? '#dc3545' : '#1a1a2e';
+  switch (suit) {
+    case Suit.Hearts:
+      return '#b85c53'; // deep terracotta/brick red
+    case Suit.Diamonds:
+      return '#4a7c59'; // deep sage/forest green
+    case Suit.Clubs:
+      return '#6b5887'; // deep muted plum/violet
+    case Suit.Spades:
+      return '#2b323f'; // dark slate navy
+  }
 }
 
 export function createDeck(): Card[] {
