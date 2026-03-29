@@ -23,6 +23,7 @@ export class Renderer {
     constructor(canvas) {
         this.buttons = [];
         this.cardHitAreas = [];
+        this.discardPileArea = null;
         this.noisePattern = null;
         this.frameCount = 0;
         this.canvas = canvas;
@@ -315,24 +316,12 @@ export class Renderer {
         // ── Top bar (two rows) ────────────────────────────────────
         ctx.fillStyle = 'rgba(0,0,0,0.25)';
         ctx.fillRect(0, 0, logicalW, 30);
-        // Row 1: Title + phase
+        // Row 1: Title
         ctx.fillStyle = ACCENT_GOLD;
         ctx.font = "bold 14px 'Inter', sans-serif";
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText('The Bogey', 10, 16);
-        const phaseLabels = {
-            'player_draw': 'Drawing...',
-            'player_turn': 'Your turn',
-            'bogey_turn': 'Bogey playing...',
-            'bogey_place': "Place bogey's card",
-        };
-        if (phaseLabels[state.phase]) {
-            ctx.fillStyle = 'rgba(255,255,255,0.55)';
-            ctx.font = "12px 'Inter', sans-serif";
-            ctx.textAlign = 'right';
-            ctx.fillText(phaseLabels[state.phase], logicalW - 10, 16);
-        }
         // ── Columns (rendered as horizontal rows) ─────────────────
         const startX = this.layout.columnsStartX;
         const startY = this.layout.columnsStartY;
@@ -416,18 +405,21 @@ export class Renderer {
         ctx.font = "9px 'Inter', sans-serif";
         ctx.textAlign = 'center';
         ctx.fillText('Deck', deckX + CARD_W / 2, deckY - 5);
-        // Discard
+        // Discard (clickable to discard selected card)
+        const canDiscardCard = selectedHandIndex !== null && placingHandIndex === null && state.phase === 'player_turn';
         if (state.discardPile.length > 0) {
-            this.drawCardFace(deckX, discardY, state.discardPile[state.discardPile.length - 1], { compact: true });
+            this.drawCardFace(deckX, discardY, state.discardPile[state.discardPile.length - 1], { compact: true, validTarget: canDiscardCard });
         }
         else {
-            this.drawEmptySlot(deckX, discardY, 'Empty', false, true);
+            this.drawEmptySlot(deckX, discardY, 'Empty', canDiscardCard, true);
         }
         // Discard label
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.font = "9px 'Inter', sans-serif";
         ctx.textAlign = 'center';
         ctx.fillText('Discard', deckX + CARD_W / 2, discardY - 5);
+        // Store discard pile bounds for click detection
+        this.discardPileArea = { x: deckX, y: discardY, w: CARD_W, h: CARD_H };
         // ── Hand area (to the right of deck/discard) ──────────────
         const handAreaX = deckX + CARD_W + 15;
         const handSpacing = Math.min(CARD_W + 12, (logicalW - handAreaX - 20) / Math.max(state.hand.length, 1));
@@ -462,35 +454,15 @@ export class Renderer {
         const btnY = handY + CARD_H + 12;
         let btnX = handAreaX;
         if (state.phase === 'player_turn') {
-            if (selectedHandIndex !== null && placingHandIndex === null) {
-                // Show play/discard buttons
-                this.buttons.push({
-                    x: btnX, y: btnY, w: 75, h: 32,
-                    label: '▶ Play', id: 'play', color: '#27ae60',
-                });
-                btnX += 85;
-                this.buttons.push({
-                    x: btnX, y: btnY, w: 85, h: 32,
-                    label: '✕ Discard', id: 'discard', color: '#c0392b',
-                });
-                btnX += 95;
-            }
-            if (placingHandIndex !== null) {
-                this.buttons.push({
-                    x: btnX, y: btnY, w: 80, h: 32,
-                    label: '↩ Cancel', id: 'cancel',
-                });
-                btnX += 90;
-            }
             this.buttons.push({
                 x: logicalW - 130, y: btnY, w: 110, h: 32,
                 label: '⏭ End Turn', id: 'end_turn',
             });
         }
-        // Resign button (always visible during play)
+        // Resign button (in top bar, visible during play)
         if (state.phase === 'player_turn' || state.phase === 'bogey_place') {
             this.buttons.push({
-                x: logicalW - 80, y: 56, w: 70, h: 26,
+                x: logicalW - 80, y: 2, w: 70, h: 26,
                 label: 'Resign', id: 'resign', color: '#8b3a3a',
             });
         }

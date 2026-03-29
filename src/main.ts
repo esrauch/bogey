@@ -71,6 +71,19 @@ function handleClick(x: number, y: number): void {
     return;
   }
 
+  // ── Discard pile (click to discard selected card) ────────
+  if (phase() === 'player_turn' && selectedHandIndex !== null) {
+    const discardArea = renderer.discardPileArea;
+    if (discardArea && x >= discardArea.x && x < discardArea.x + discardArea.w &&
+      y >= discardArea.y && y < discardArea.y + discardArea.h) {
+      playClick();
+      saveUndo(state);
+      discardCard(state, selectedHandIndex);
+      selectedHandIndex = null;
+      return;
+    }
+  }
+
   // ── Card interactions ─────────────────────────────────────
   const hit = renderer.hitTestCard(x, y);
   if (!hit) {
@@ -81,26 +94,7 @@ function handleClick(x: number, y: number): void {
   }
 
   if (phase() === 'player_turn') {
-    if (placingHandIndex !== null) {
-      // We're in "placing" mode — clicking a column places the card
-      if (hit.type === 'column' || hit.type === 'new_column') {
-        const colIdx = hit.index;
-        const card = state.hand[placingHandIndex];
-        if (card && getValidColumns(card, state.columns).includes(colIdx)) {
-          saveUndo(state);
-          playCardToColumn(state, placingHandIndex, colIdx);
-          playCardPlace();
-          placingHandIndex = null;
-          selectedHandIndex = null;
-        } else {
-          flashMessage("Can't play there");
-        }
-      } else if (hit.type === 'hand') {
-        // Clicking a different hand card switches selection
-        placingHandIndex = null;
-        selectedHandIndex = hit.index;
-      }
-    } else if (hit.type === 'hand') {
+    if (hit.type === 'hand') {
       if (selectedHandIndex === hit.index) {
         // Toggle off
         selectedHandIndex = null;
@@ -141,22 +135,6 @@ function handleClick(x: number, y: number): void {
 function handleButton(id: string): void {
   playClick();
   switch (id) {
-    case 'play':
-      if (selectedHandIndex !== null) {
-        placingHandIndex = selectedHandIndex;
-        selectedHandIndex = null;
-      }
-      break;
-    case 'discard':
-      if (selectedHandIndex !== null) {
-        saveUndo(state);
-        discardCard(state, selectedHandIndex);
-        selectedHandIndex = null;
-      }
-      break;
-    case 'cancel':
-      placingHandIndex = null;
-      break;
     case 'end_turn':
       selectedHandIndex = null;
       placingHandIndex = null;
