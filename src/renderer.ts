@@ -382,13 +382,13 @@ export class Renderer {
 
     this.buttons = [
       {
-        x: btnX, y: logicalH * 0.50, w: btnW, h: btnH,
-        label: '♠  Normal (Hand of 5)', id: 'normal',
+        x: btnX, y: logicalH * 0.40, w: btnW, h: btnH,
+        label: '? Tutorial', id: 'tutorial',
+        color: '#5a7d8a',
       },
       {
-        x: btnX, y: logicalH * 0.50 + btnH + 15, w: btnW, h: btnH,
-        label: '♦  Hard (Hand of 4)', id: 'hard',
-        color: '#b8860b',
+        x: btnX, y: logicalH * 0.40 + btnH + 15, w: btnW, h: btnH,
+        label: '♠  Play', id: 'normal',
       },
     ];
 
@@ -592,13 +592,13 @@ export class Renderer {
       ctx.globalAlpha = Math.min(1, state.messageTimer / 30);
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       const tw = ctx.measureText(state.message).width + 40;
-      this.roundRect(logicalW / 2 - tw / 2, logicalH / 2 - 20, tw, 40, 8);
+      this.roundRect(logicalW / 2 - tw / 2, logicalH / 4 - 20, tw, 40, 8);
       ctx.fill();
       ctx.fillStyle = '#fff';
       ctx.font = "14px 'Inter', sans-serif";
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(state.message, logicalW / 2, logicalH / 2);
+      ctx.fillText(state.message, logicalW / 2, logicalH / 4);
       ctx.restore();
     }
 
@@ -637,7 +637,6 @@ export class Renderer {
       `Turns played: ${state.turnNumber}`,
       `Cards played: ${state.cardsPlayed}`,
       `Cards discarded: ${state.cardsDiscarded}`,
-      `Difficulty: ${state.difficulty === 'normal' ? 'Normal (5)' : 'Hard (4)'}`,
     ];
     if (!isWin && state.message) {
       stats.push(state.message);
@@ -678,5 +677,99 @@ export class Renderer {
       }
     }
     return null;
+  }
+
+  renderTutorialOverlay(state: GameState, tutorialStep: number): void {
+    const ctx = this.ctx;
+    const { logicalW, logicalH } = this.layout;
+
+    // Darken the background slightly
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(0, 0, logicalW, logicalH);
+
+    // Context-aware tutorial panel
+    const panelW = 380;
+    const panelH = 200;
+    const panelX = logicalW - panelW - 20;
+    const panelY = 350;
+
+    // Panel background
+    this.roundRect(panelX, panelY, panelW, panelH, 12);
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.fill();
+
+    // Tutorial content based on step
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = "13px 'Inter', sans-serif";
+    ctx.textAlign = 'left';
+
+    let title = '';
+    let text = '';
+    switch (tutorialStep) {
+      case 0:
+        title = 'Welcome to The Bogey!';
+        text = 'Click anywhere to begin the interactive tutorial.';
+        break;
+      case 1:
+        title = 'Objective of the game';
+        text = 'Your goal is to place all 52 cards into piles.\n\n' +
+          'Each pile may contain only one suit.\n\n' +
+          'Piles must be in descending order (K-Q-..-3-2-A).\n\n' +
+          'You may have at most 12 piles.';
+        break;
+      case 2:
+        title = 'Your turn';
+        text = 'At the start of each turn, your hand refills\n\n' +
+          'You may play a card into a pile or discard it.\n\n' +
+          'You may keep cards to use in a later turn.';
+        break;
+      case 3:
+        title = 'The Bogey';
+        text = 'After your turn, the Bogey will force you to play\nthe top card of the deck.\n\n' +
+          'If the Bogey card cannot be placed, it\'s game over!';
+        break;
+      case 4:
+        title = 'Step 1: Play the Queen';
+        text = 'Click the Queen of Spades to select it.\n\n' +
+          'Then click the empty area below the table to\n' +
+          'start a new pile. (Click the "+" area.)';
+        break;
+      case 5:
+        title = 'Step 2: Stack the Jack';
+        text = 'Now click the Jack of Spades.\n\n' +
+          'Then click on the Queen pile below it.\n\n' +
+          'Cards must be same suit and lower rank.';
+        break;
+      case 6:
+        title = 'Step 3: Your Options';
+        text = 'You can now:\n\n' +
+          '• Play remaining cards to piles\n' +
+          '• Discard cards to the pile on the left\n' +
+          '• Click End Turn to proceed';
+        break;
+      case 7:
+        title = 'The Bogey\'s Turn';
+        text = 'The Bogey now draws a card and plays it.\n\n' +
+          'It will force a play, so choose wisely\n' +
+          'where to place its card!\n\n' +
+          'If it can\'t play — Game Over.';
+        break;
+      default:
+        title = 'You\'ve Learned the Basics!';
+        text = 'Perfect! You now understand the game.\n\n' +
+          'Continue playing strategically.\n\n' +
+          'Good luck beating the Bogey!';
+    }
+
+    const lines = text.split('\n');
+    ctx.fillStyle = ACCENT_GOLD;
+    ctx.font = "bold 16px 'Inter', sans-serif";
+    ctx.fillText(title, panelX + 20, panelY + 30);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = "13px 'Inter', sans-serif";
+    ctx.textAlign = 'left';
+    lines.forEach((line, i) => {
+      ctx.fillText(line, panelX + 20, panelY + 60 + i * 20);
+    });
   }
 }

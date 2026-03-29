@@ -1,8 +1,8 @@
 // ── Game state and logic ────────────────────────────────────
-import { createDeck, shuffleDeck } from './card.js';
+import { Suit, Rank, createDeck, shuffleDeck } from './card.js';
 export const MAX_COLUMNS = 12;
-export function createGameState(difficulty) {
-    const handSize = difficulty === 'normal' ? 5 : 4;
+export function createGameState() {
+    const handSize = 5;
     const deck = shuffleDeck(createDeck());
     return {
         phase: 'player_draw',
@@ -12,12 +12,42 @@ export function createGameState(difficulty) {
         columns: [],
         bogeyCard: null,
         turnNumber: 1,
-        difficulty,
         handSize,
         cardsPlayed: 0,
         cardsDiscarded: 0,
         undoStack: [],
         hasDrawnThisTurn: false,
+        message: '',
+        messageTimer: 0,
+    };
+}
+export function createTutorialState() {
+    const fullDeck = createDeck();
+    // Create the specific tutorial hand
+    const tutorialHand = [
+        { suit: Suit.Spades, rank: Rank.Jack, id: 49 },
+        { suit: Suit.Diamonds, rank: Rank.Two, id: 14 },
+        { suit: Suit.Diamonds, rank: Rank.Five, id: 17 },
+        { suit: Suit.Clubs, rank: Rank.Eight, id: 33 },
+        { suit: Suit.Spades, rank: Rank.Queen, id: 50 },
+    ];
+    // Remove tutorial cards from deck and shuffle the rest
+    const tutorialCardIds = new Set(tutorialHand.map(c => c.id));
+    const remainingDeck = fullDeck.filter(c => !tutorialCardIds.has(c.id));
+    const deck = shuffleDeck(remainingDeck);
+    return {
+        phase: 'player_turn',
+        deck,
+        hand: tutorialHand,
+        discardPile: [],
+        columns: [],
+        bogeyCard: null,
+        turnNumber: 1,
+        handSize: 5,
+        cardsPlayed: 0,
+        cardsDiscarded: 0,
+        undoStack: [],
+        hasDrawnThisTurn: true,
         message: '',
         messageTimer: 0,
     };

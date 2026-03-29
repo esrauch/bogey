@@ -6,14 +6,13 @@ export const MAX_COLUMNS = 12;
 
 export type GamePhase =
   | 'menu'
+  | 'tutorial'
   | 'player_draw'
   | 'player_turn'
   | 'bogey_turn'
   | 'bogey_place'
   | 'game_over'
   | 'game_won';
-
-export type Difficulty = 'normal' | 'hard';
 
 export interface UndoSnapshot {
   hand: Card[];
@@ -29,7 +28,6 @@ export interface GameState {
   columns: Card[][];
   bogeyCard: Card | null;
   turnNumber: number;
-  difficulty: Difficulty;
   handSize: number;
   cardsPlayed: number;
   cardsDiscarded: number;
@@ -39,8 +37,8 @@ export interface GameState {
   messageTimer: number;
 }
 
-export function createGameState(difficulty: Difficulty): GameState {
-  const handSize = difficulty === 'normal' ? 5 : 4;
+export function createGameState(): GameState {
+  const handSize = 5;
   const deck = shuffleDeck(createDeck());
   return {
     phase: 'player_draw',
@@ -50,12 +48,46 @@ export function createGameState(difficulty: Difficulty): GameState {
     columns: [],
     bogeyCard: null,
     turnNumber: 1,
-    difficulty,
     handSize,
     cardsPlayed: 0,
     cardsDiscarded: 0,
     undoStack: [],
     hasDrawnThisTurn: false,
+    message: '',
+    messageTimer: 0,
+  };
+}
+
+export function createTutorialState(): GameState {
+  const fullDeck = createDeck();
+
+  // Create the specific tutorial hand
+  const tutorialHand: Card[] = [
+    { suit: Suit.Spades, rank: Rank.Jack, id: 49 },
+    { suit: Suit.Diamonds, rank: Rank.Two, id: 14 },
+    { suit: Suit.Diamonds, rank: Rank.Five, id: 17 },
+    { suit: Suit.Clubs, rank: Rank.Eight, id: 33 },
+    { suit: Suit.Spades, rank: Rank.Queen, id: 50 },
+  ];
+
+  // Remove tutorial cards from deck and shuffle the rest
+  const tutorialCardIds = new Set(tutorialHand.map(c => c.id));
+  const remainingDeck = fullDeck.filter(c => !tutorialCardIds.has(c.id));
+  const deck = shuffleDeck(remainingDeck);
+
+  return {
+    phase: 'player_turn',
+    deck,
+    hand: tutorialHand,
+    discardPile: [],
+    columns: [],
+    bogeyCard: null,
+    turnNumber: 1,
+    handSize: 5,
+    cardsPlayed: 0,
+    cardsDiscarded: 0,
+    undoStack: [],
+    hasDrawnThisTurn: true, // Mark as drawn so they don't autofill
     message: '',
     messageTimer: 0,
   };

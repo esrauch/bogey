@@ -1,12 +1,15 @@
 // ── Main entry point ────────────────────────────────────────
-import { createGameState, drawCards, endPlayerTurn, drawBogeyCard, placeBogeyCard, playCardToColumn, discardCard, getValidColumns, saveUndo, performUndo, resign, } from './game.js';
+import { createGameState, createTutorialState, drawCards, endPlayerTurn, drawBogeyCard, placeBogeyCard, playCardToColumn, discardCard, getValidColumns, saveUndo, performUndo, resign, } from './game.js';
 import { Renderer } from './renderer.js';
 import { AnimationSystem } from './animation.js';
+import { Rank, Suit } from './card.js';
 import { playCardPlace, playCardFlip, playCardDraw, playWin, playLose, playUndo, playClick, } from './audio.js';
 // ── App state ───────────────────────────────────────────────
 let state = { phase: 'menu' };
 let selectedHandIndex = null;
 let placingHandIndex = null; // hand card being placed onto a column
+let tutorialActive = false;
+let tutorialStep = 0;
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const anims = new AnimationSystem();
@@ -30,7 +33,12 @@ function handleClick(x, y) {
         const btn = renderer.hitTestButton(x, y);
         if (btn) {
             playClick();
-            startGame(btn.id);
+            if (btn.id === 'tutorial') {
+                startTutorial();
+            }
+            else {
+                startGame();
+            }
         }
         return;
     }
@@ -43,6 +51,23 @@ function handleClick(x, y) {
         }
         return;
     }
+    if (tutorialActive) {
+        // Steps 0-3 advance with any click
+        if (tutorialStep < 4) {
+            tutorialStep++;
+            return;
+        }
+        // Final step 8 returns to menu when clicked
+        if (tutorialStep === 8) {
+            tutorialActive = false;
+            tutorialStep = 0;
+            state = { phase: 'menu' };
+            selectedHandIndex = null;
+            placingHandIndex = null;
+            return;
+        }
+        // Step 4-7 require specific player interactions
+    }
     // ── Buttons ───────────────────────────────────────────────
     const btn = renderer.hitTestButton(x, y);
     if (btn) {
@@ -50,15 +75,20 @@ function handleClick(x, y) {
         return;
     }
     // ── Discard pile (click to discard selected card) ────────
-    if (phase() === 'player_turn' && selectedHandIndex !== null) {
+    if (phase() === 'player_turn' && selectedHandIndex !== null) { // Tutorial step 4: Block discarding
         const discardArea = renderer.discardPileArea;
         if (discardArea && x >= discardArea.x && x < discardArea.x + discardArea.w &&
             y >= discardArea.y && y < discardArea.y + discardArea.h) {
-            playClick();
-            saveUndo(state);
-            discardCard(state, selectedHandIndex);
-            selectedHandIndex = null;
-            return;
+            if (tutorialActive && tutorialStep === 4) {
+                flashMessage('No discarding yet!');
+            }
+            else {
+                playClick();
+                saveUndo(state);
+                discardCard(state, selectedHandIndex);
+                selectedHandIndex = null;
+                return;
+            }
         }
     }
     // ── Card interactions ─────────────────────────────────────
@@ -71,6 +101,32 @@ function handleClick(x, y) {
     }
     if (phase() === 'player_turn') {
         if (hit.type === 'hand') {
+            // Tutorial step 4: Only allow selecting Queen of Spades (index 4)
+            if (tutorialActive && tutorialStep === 4) {
+                if (hit.index === 4) {
+                    selectedHandIndex = 4;
+                }
+                else {
+                    flashMessage('Select the Queen');
+                }
+                return;
+            }
+            // Tutorial step 5: Only allow selecting Jack (index 0) or Queen (index 4)
+            if (tutorialActive && tutorialStep === 5) {
+                if (hit.index === 0 || hit.index === 4) {
+                    if (selectedHandIndex === hit.index) {
+                        selectedHandIndex = null;
+                    }
+                    else {
+                        selectedHandIndex = hit.index;
+                    }
+                }
+                else {
+                    flashMessage('Select the Jack');
+                }
+                return;
+            }
+            // Normal play
             if (selectedHandIndex === hit.index) {
                 // Toggle off
                 selectedHandIndex = null;
@@ -83,11 +139,34 @@ function handleClick(x, y) {
             // Direct play: card selected in hand → click a column to place it
             const colIdx = hit.index;
             const card = state.hand[selectedHandIndex];
+            // Tutorial step 4: Only allow Queen to new pile
+            if (tutorialActive && tutorialStep === 4) {
+                if (card && card.rank === Rank.Queen && card.suit === Suit.Spades && colIdx === state.columns.length) {
+                    saveUndo(state);
+                    playCardToColumn(state, selectedHandIndex, colIdx);
+                    playCardPlace();
+                    selectedHandIndex = null;
+                    tutorialStep = 5;
+                    return;
+                }
+                else if (colIdx !== state.columns.length) {
+                    flashMessage('Play to a new pile');
+                    return;
+                }
+                else if (!card || card.rank !== Rank.Queen || card.suit !== Suit.Spades) {
+                    flashMessage('Only the Queen can be played in this step');
+                    return;
+                }
+            }
             if (card && getValidColumns(card, state.columns).includes(colIdx)) {
                 saveUndo(state);
                 playCardToColumn(state, selectedHandIndex, colIdx);
                 playCardPlace();
                 selectedHandIndex = null;
+                // Tutorial progression
+                if (tutorialActive && tutorialStep === 5 && card.rank === Rank.Jack && card.suit === Suit.Spades) {
+                    tutorialStep = 6;
+                }
             }
             else {
                 flashMessage("Can't play there");
@@ -100,6 +179,12 @@ function handleClick(x, y) {
             if (state.bogeyCard && getValidColumns(state.bogeyCard, state.columns).includes(colIdx)) {
                 placeBogeyCard(state, colIdx);
                 playCardPlace();
+                // Tutorial: Show completion message after bogey places card
+                if (tutorialActive && tutorialStep === 7) {
+                    tutorialStep = 8;
+                    state.message = 'You\'ve learned the basics!';
+                    state.messageTimer = 120;
+                }
                 if (phase() === 'game_won') {
                     playWin();
                 }
@@ -116,6 +201,12 @@ function handleButton(id) {
         case 'end_turn':
             selectedHandIndex = null;
             placingHandIndex = null;
+            // Tutorial progression: Step 6 -> Step 7
+            if (tutorialActive && tutorialStep === 6) {
+                tutorialStep = 7;
+                state.message = 'Now the Bogey plays its card...';
+                state.messageTimer = 120;
+            }
             endPlayerTurn(state);
             bogeyDelayTimer = 8; // brief pause before bogey plays
             break;
@@ -133,12 +224,24 @@ function handleButton(id) {
     }
 }
 // ── Game flow ───────────────────────────────────────────────
-function startGame(difficulty) {
-    state = createGameState(difficulty);
+function startGame() {
+    tutorialActive = false;
+    tutorialStep = 0;
+    state = createGameState();
     selectedHandIndex = null;
     placingHandIndex = null;
     bogeyDelayTimer = 0;
     drawDelayTimer = 5; // brief pause then auto-draw
+    drawAnimating = false;
+}
+function startTutorial() {
+    tutorialActive = true;
+    tutorialStep = 0;
+    state = createTutorialState();
+    selectedHandIndex = null;
+    placingHandIndex = null;
+    bogeyDelayTimer = 0;
+    drawDelayTimer = 0;
     drawAnimating = false;
 }
 function flashMessage(msg) {
@@ -153,6 +256,10 @@ function update() {
         if (state.messageTimer <= 0) {
             state.message = '';
         }
+    }
+    // Tutorial progression: Step 6 -> Step 7 on End Turn
+    if (tutorialActive && tutorialStep === 6) {
+        // When End Turn is called from handleButton, we'll advance to step 7
     }
     // Auto-draw phase
     if (phase() === 'player_draw') {
@@ -207,6 +314,9 @@ function render() {
     }
     else {
         renderer.renderGame(state, selectedHandIndex, placingHandIndex);
+        if (tutorialActive) {
+            renderer.renderTutorialOverlay(state, tutorialStep);
+        }
     }
 }
 function gameLoop() {
