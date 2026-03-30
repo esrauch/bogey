@@ -2,8 +2,8 @@
 
 import {
   GameState, createGameState, createTutorialState, drawCards, endPlayerTurn,
-  drawBogeyCard, placeBogeyCard, playCardToColumn, discardCard,
-  getValidColumns, saveUndo, performUndo, resign, canPlayToColumn,
+  drawBogeyCard, placeBogeyCard, playCardToPile, discardCard,
+  getValidPiles, saveUndo, performUndo, resign, canPlayToPile,
   GamePhase,
 } from './game.js';
 import { Renderer } from './renderer.js';
@@ -19,7 +19,6 @@ import { cardName } from './card.js';
 
 let state: GameState = { phase: 'menu' } as GameState;
 let selectedHandIndex: number | null = null;
-let placingHandIndex: number | null = null; // hand card being placed onto a column
 let tutorialActive = false;
 let tutorialStep = 0;
 
@@ -45,7 +44,7 @@ function getCanvasPos(e: MouseEvent | Touch): { x: number; y: number } {
 }
 
 function handleClick(x: number, y: number): void {
-  //resumeAudio();
+  resumeAudio();
 
   // ── Menu ──────────────────────────────────────────────────
   if (phase() === 'menu') {
@@ -89,7 +88,6 @@ function handleClick(x: number, y: number): void {
       tutorialStep = 0;
       state = { phase: 'menu' } as GameState;
       selectedHandIndex = null;
-      placingHandIndex = null;
       return;
     }
     // Step 4-7 require specific player interactions
@@ -130,7 +128,6 @@ function handleClick(x: number, y: number): void {
   if (!hit) {
     // Clicked empty space — deselect
     selectedHandIndex = null;
-    placingHandIndex = null;
     return;
   }
 
@@ -154,7 +151,7 @@ function handleClick(x: number, y: number): void {
             selectedHandIndex = hit.index;
           }
         } else {
-          flashMessage('Select the Jack');
+          flashMessage('Select the Jack or Queen');
         }
         return;
       }
@@ -165,21 +162,21 @@ function handleClick(x: number, y: number): void {
       } else {
         selectedHandIndex = hit.index;
       }
-    } else if ((hit.type === 'column' || hit.type === 'new_column') && selectedHandIndex !== null) {
-      // Direct play: card selected in hand → click a column to place it
-      const colIdx = hit.index;
+    } else if ((hit.type === 'pile' || hit.type === 'new_pile') && selectedHandIndex !== null) {
+      // Direct play: card selected in hand → click a pile to place it
+      const pileIdx = hit.index;
       const card = state.hand[selectedHandIndex];
 
       // Tutorial step 4: Only allow Queen to new pile
       if (tutorialActive && tutorialStep === 4) {
-        if (card && card.rank === Rank.Queen && card.suit === Suit.Spades && colIdx === state.columns.length) {
+        if (card && card.rank === Rank.Queen && card.suit === Suit.Spades && pileIdx === state.piles.length) {
           saveUndo(state);
-          playCardToColumn(state, selectedHandIndex, colIdx);
+          playCardToPile(state, selectedHandIndex, pileIdx);
           playCardPlace();
           selectedHandIndex = null;
           tutorialStep = 5;
           return;
-        } else if (colIdx !== state.columns.length) {
+        } else if (pileIdx !== state.piles.length) {
           flashMessage('Play to a new pile');
           return;
         } else if (!card || card.rank !== Rank.Queen || card.suit !== Suit.Spades) {
@@ -188,12 +185,12 @@ function handleClick(x: number, y: number): void {
         }
       }
 
-      if (card && getValidColumns(card, state.columns).includes(colIdx)) {
+      if (card && getValidPiles(card, state.piles).includes(pileIdx)) {
         const handPos = renderer.getHandCardPos(selectedHandIndex, state.hand.length);
-        const colCardCount = colIdx < state.columns.length ? state.columns[colIdx].length : 0;
+        const pileCardCount = pileIdx < state.piles.length ? state.piles[pileIdx].length : 0;
         saveUndo(state);
-        playCardToColumn(state, selectedHandIndex, colIdx);
-        const destPos = renderer.getColumnPos(colIdx, colCardCount, state.columns.length);
+        playCardToPile(state, selectedHandIndex, pileIdx);
+        const destPos = renderer.getPilePos(pileIdx, pileCardCount, state.piles.length);
         renderer.addFlyingCard(card, handPos.x, handPos.y, destPos.x, destPos.y, {
           duration: 200, compact: true,
         });
@@ -211,17 +208,17 @@ function handleClick(x: number, y: number): void {
   }
 
   if (phase() === 'bogey_place') {
-    if (hit.type === 'column' || hit.type === 'new_column') {
-      const colIdx = hit.index;
-      if (state.bogeyCard && getValidColumns(state.bogeyCard, state.columns).includes(colIdx)) {
+    if (hit.type === 'pile' || hit.type === 'new_pile') {
+      const pileIdx = hit.index;
+      if (state.bogeyCard && getValidPiles(state.bogeyCard, state.piles).includes(pileIdx)) {
         const bogeyCard = state.bogeyCard;
         const { logicalW } = renderer.layout;
         const handY = renderer.layout.handStartY;
         const bx = logicalW / 2 - 35; // CARD_W/2
         const by = handY - 70 - 20;
-        const colCardCount = colIdx < state.columns.length ? state.columns[colIdx].length : 0;
-        placeBogeyCard(state, colIdx);
-        const destPos = renderer.getColumnPos(colIdx, colCardCount, state.columns.length);
+        const pileCardCount = pileIdx < state.piles.length ? state.piles[pileIdx].length : 0;
+        placeBogeyCard(state, pileIdx);
+        const destPos = renderer.getPilePos(pileIdx, pileCardCount, state.piles.length);
         renderer.addFlyingCard(bogeyCard, bx, by, destPos.x, destPos.y, {
           duration: 250, compact: true,
         });
@@ -247,7 +244,6 @@ function handleButton(id: string): void {
   switch (id) {
     case 'end_turn':
       selectedHandIndex = null;
-      placingHandIndex = null;
       // Tutorial progression: Step 6 -> Step 7
       if (tutorialActive && tutorialStep === 6) {
         tutorialStep = 7;
@@ -261,7 +257,6 @@ function handleButton(id: string): void {
       if (performUndo(state)) {
         playUndo();
         selectedHandIndex = null;
-        placingHandIndex = null;
       }
       break;
     case 'resign':
@@ -278,7 +273,6 @@ function startGame(): void {
   tutorialStep = 0;
   state = createGameState();
   selectedHandIndex = null;
-  placingHandIndex = null;
   bogeyDelayTimer = 0;
   drawDelayTimer = 5; // brief pause then auto-draw
   drawAnimating = false;
@@ -289,7 +283,6 @@ function startTutorial(): void {
   tutorialStep = 0;
   state = createTutorialState();
   selectedHandIndex = null;
-  placingHandIndex = null;
   bogeyDelayTimer = 0;
   drawDelayTimer = 0;
   drawAnimating = false;
@@ -382,7 +375,7 @@ function render(): void {
   } else if (phase() === 'game_over' || phase() === 'game_won') {
     renderer.renderEndScreen(state);
   } else {
-    renderer.renderGame(state, selectedHandIndex, placingHandIndex, drawAnimating);
+    renderer.renderGame(state, selectedHandIndex, drawAnimating);
     renderer.drawFlyingCards();
     if (tutorialActive) {
       renderer.renderTutorialOverlay(state, tutorialStep);

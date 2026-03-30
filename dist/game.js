@@ -1,6 +1,6 @@
 // ── Game state and logic ────────────────────────────────────
 import { Suit, Rank, createDeck, shuffleDeck } from './card.js';
-export const MAX_COLUMNS = 13;
+export const MAX_PILES = 13;
 export function createGameState() {
     const handSize = 5;
     const deck = shuffleDeck(createDeck());
@@ -9,7 +9,7 @@ export function createGameState() {
         deck,
         hand: [],
         discardPile: [],
-        columns: [],
+        piles: [],
         bogeyCard: null,
         turnNumber: 1,
         handSize,
@@ -40,7 +40,7 @@ export function createTutorialState() {
         deck,
         hand: tutorialHand,
         discardPile: [],
-        columns: [],
+        piles: [],
         bogeyCard: null,
         turnNumber: 1,
         handSize: 5,
@@ -53,41 +53,41 @@ export function createTutorialState() {
     };
 }
 // ── Card legality checks ────────────────────────────────────
-export function canPlayToColumn(card, column) {
-    if (column.length === 0)
+export function canPlayToPile(card, pile) {
+    if (pile.length === 0)
         return true;
-    const top = column[column.length - 1];
+    const top = pile[pile.length - 1];
     if (card.suit !== top.suit)
         return false;
     // Standard descending order (higher rank to lower rank; Ace as low)
     if (card.rank < top.rank)
         return true;
     // Allow Ace as a 'highest' card starting a pile, but no wrap around of (2 > A > K)
-    if (column.length == 1 && top.rank === Rank.Ace)
+    if (pile.length == 1 && top.rank === Rank.Ace)
         return true;
     return false;
 }
-export function getValidColumns(card, columns) {
+export function getValidPiles(card, piles) {
     const valid = [];
-    for (let i = 0; i < columns.length; i++) {
-        if (canPlayToColumn(card, columns[i])) {
+    for (let i = 0; i < piles.length; i++) {
+        if (canPlayToPile(card, piles[i])) {
             valid.push(i);
         }
     }
-    // Can start new column if under limit
-    if (columns.length < MAX_COLUMNS) {
-        valid.push(columns.length); // index for "new column"
+    // Can start new pile if under limit
+    if (piles.length < MAX_PILES) {
+        valid.push(piles.length); // index for "new pile"
     }
     return valid;
 }
-export function canBogeyPlay(card, columns) {
-    // Check existing columns
-    for (const col of columns) {
-        if (canPlayToColumn(card, col))
+export function canBogeyPlay(card, piles) {
+    // Check existing piles
+    for (const pile of piles) {
+        if (canPlayToPile(card, pile))
             return true;
     }
-    // Check if can start a new column
-    return columns.length < MAX_COLUMNS;
+    // Check if can start a new pile
+    return piles.length < MAX_PILES;
 }
 // ── State transitions ───────────────────────────────────────
 export function drawCards(state) {
@@ -111,7 +111,7 @@ export function drawCards(state) {
 export function saveUndo(state) {
     state.undoStack.push({
         hand: [...state.hand],
-        columns: state.columns.map(c => [...c]),
+        piles: state.piles.map(c => [...c]),
         discardPile: [...state.discardPile],
     });
 }
@@ -120,23 +120,23 @@ export function performUndo(state) {
         return false;
     const snap = state.undoStack.pop();
     state.hand = snap.hand;
-    state.columns = snap.columns;
+    state.piles = snap.piles;
     state.discardPile = snap.discardPile;
     return true;
 }
-export function playCardToColumn(state, handIndex, colIndex) {
+export function playCardToPile(state, handIndex, pileIndex) {
     const card = state.hand[handIndex];
     if (!card)
         return false;
-    if (colIndex === state.columns.length) {
-        if (state.columns.length >= MAX_COLUMNS)
+    if (pileIndex === state.piles.length) {
+        if (state.piles.length >= MAX_PILES)
             return false;
-        state.columns.push([card]);
+        state.piles.push([card]);
     }
     else {
-        if (!canPlayToColumn(card, state.columns[colIndex]))
+        if (!canPlayToPile(card, state.piles[pileIndex]))
             return false;
-        state.columns[colIndex].push(card);
+        state.piles[pileIndex].push(card);
     }
     state.hand.splice(handIndex, 1);
     state.cardsPlayed++;
@@ -170,24 +170,24 @@ export function drawBogeyCard(state) {
     state.bogeyCard = card;
     state.phase = 'bogey_place';
     // Check if bogey card can be placed at all
-    if (!canBogeyPlay(card, state.columns)) {
+    if (!canBogeyPlay(card, state.piles)) {
         state.phase = 'bogey_loss';
         state.message = "The bogey's card can't be placed! Click to continue.";
     }
     return card;
 }
-export function placeBogeyCard(state, colIndex) {
+export function placeBogeyCard(state, pileIndex) {
     if (!state.bogeyCard)
         return false;
-    if (colIndex === state.columns.length) {
-        if (state.columns.length >= MAX_COLUMNS)
+    if (pileIndex === state.piles.length) {
+        if (state.piles.length >= MAX_PILES)
             return false;
-        state.columns.push([state.bogeyCard]);
+        state.piles.push([state.bogeyCard]);
     }
     else {
-        if (!canPlayToColumn(state.bogeyCard, state.columns[colIndex]))
+        if (!canPlayToPile(state.bogeyCard, state.piles[pileIndex]))
             return false;
-        state.columns[colIndex].push(state.bogeyCard);
+        state.piles[pileIndex].push(state.bogeyCard);
     }
     state.cardsPlayed++;
     state.bogeyCard = null;
@@ -200,7 +200,7 @@ export function placeBogeyCard(state, colIndex) {
     return true;
 }
 function checkWin(state) {
-    const totalOnTable = state.columns.reduce((sum, col) => sum + col.length, 0);
+    const totalOnTable = state.piles.reduce((sum, col) => sum + col.length, 0);
     if (totalOnTable === 52) {
         state.phase = 'game_won';
     }
@@ -209,19 +209,19 @@ export function resign(state) {
     state.phase = 'game_over';
     state.message = 'You resigned.';
 }
-export function getWinRating(numColumns) {
-    if (numColumns <= 8)
+export function getWinRating(numPiles) {
+    if (numPiles <= 8)
         return '🏆 Epic';
-    if (numColumns <= 9)
+    if (numPiles <= 9)
         return '⚔️ Legendary';
-    if (numColumns <= 10)
+    if (numPiles <= 10)
         return '🎯 Advanced';
-    if (numColumns <= 11)
+    if (numPiles <= 11)
         return '✅ Normal';
     return '📖 Novice';
 }
 export function getTotalCardsOnTable(state) {
-    return state.columns.reduce((sum, col) => sum + col.length, 0);
+    return state.piles.reduce((sum, col) => sum + col.length, 0);
 }
 export function getRemainingCards(state) {
     return 52 - getTotalCardsOnTable(state);

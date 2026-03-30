@@ -1,7 +1,7 @@
 // ── Canvas rendering ────────────────────────────────────────
 
 import { Card, Suit, rankLabel, suitSymbol, suitColor } from './card.js';
-import { GameState, MAX_COLUMNS, getWinRating, getValidColumns, canBogeyPlay } from './game.js';
+import { GameState, MAX_PILES, getWinRating, getValidPiles, canBogeyPlay } from './game.js';
 
 // ── Layout constants (in logical pixels, scaled to canvas) ──
 
@@ -31,8 +31,8 @@ export interface Layout {
   scale: number;
   logicalW: number;
   logicalH: number;
-  columnsStartX: number;
-  columnsStartY: number;
+  pilesStartX: number;
+  pilesStartY: number;
   handStartY: number;
   deckX: number;
   deckY: number;
@@ -47,8 +47,8 @@ export interface ButtonRect {
 
 export interface CardHitArea {
   x: number; y: number; w: number; h: number;
-  type: 'hand' | 'column' | 'new_column';
-  index: number; // hand index or column index
+  type: 'hand' | 'pile' | 'new_pile';
+  index: number; // hand index or pile index
 }
 
 export interface FlyingCard {
@@ -96,8 +96,8 @@ export class Renderer {
       scale: 1,
       logicalW: w,
       logicalH: h,
-      columnsStartX: 30,
-      columnsStartY: 60,
+      pilesStartX: 30,
+      pilesStartY: 60,
       handStartY: h - CARD_H - HAND_Y_OFFSET,
       deckX: 10,
       deckY: h - CARD_H - HAND_Y_OFFSET,
@@ -410,7 +410,7 @@ export class Renderer {
     }
   }
 
-  renderGame(state: GameState, selectedHandIndex: number | null, placingHandIndex: number | null, dealAnimating: boolean = false): void {
+  renderGame(state: GameState, selectedHandIndex: number | null, dealAnimating: boolean = false): void {
     const ctx = this.ctx;
     const { logicalW, logicalH } = this.layout;
 
@@ -429,20 +429,20 @@ export class Renderer {
     ctx.textBaseline = 'middle';
     ctx.fillText('The Bogey', 10, 16);
 
-    // ── Columns (rendered as horizontal rows) ─────────────────
-    const startX = this.layout.columnsStartX;
-    const startY = this.layout.columnsStartY;
+    // ── Piles (rendered as horizontal rows) ─────────────────
+    const startX = this.layout.pilesStartX;
+    const startY = this.layout.pilesStartY;
 
     // Determine which card we're placing (for highlighting)
-    const activeHandIndex = placingHandIndex ?? selectedHandIndex;
+    const activeHandIndex = selectedHandIndex;
     const placingCard = activeHandIndex !== null ? state.hand[activeHandIndex] : state.bogeyCard;
     const isPlacingPhase = activeHandIndex !== null || state.phase === 'bogey_place';
-    const validCols = placingCard ? getValidColumns(placingCard, state.columns) : [];
+    const validCols = placingCard ? getValidPiles(placingCard, state.piles) : [];
 
     // Compute row dimensions to fit available vertical space
     const handY = this.layout.handStartY;
     const availableH = handY - startY - 20; // leave some padding above hand
-    const totalRows = Math.max(state.columns.length + 1, 1);
+    const totalRows = Math.max(state.piles.length + 1, 1);
     // Compact cards are square (CARD_W x CARD_W)
     const maxRowH = CARD_W + ROW_GAP;
     const rowH = Math.min(maxRowH, availableH / totalRows);
@@ -451,29 +451,29 @@ export class Renderer {
     const labelW = 10; // space for row number label
     const rowStartX = startX + labelW;
 
-    for (let colIdx = 0; colIdx < state.columns.length; colIdx++) {
-      const col = state.columns[colIdx];
-      const ry = startY + colIdx * rowH;
-      const isValid = isPlacingPhase && validCols.includes(colIdx);
+    for (let pileIdx = 0; pileIdx < state.piles.length; pileIdx++) {
+      const pile = state.piles[pileIdx];
+      const ry = startY + pileIdx * rowH;
+      const isValid = isPlacingPhase && validCols.includes(pileIdx);
 
       // Row label
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
       ctx.font = `${20 * cardScale}px 'Inter', sans-serif`;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`${colIdx + 1}`, rowStartX - 10, ry + scaledCardSize / 2);
+      ctx.fillText(`${pileIdx + 1}`, rowStartX - 10, ry + scaledCardSize / 2);
 
-      if (col.length === 0) {
+      if (pile.length === 0) {
         this.drawEmptySlot(rowStartX, ry, 'empty', isValid, true, cardScale);
-        this.cardHitAreas.push({ x: rowStartX, y: ry, w: scaledCardSize, h: scaledCardSize, type: 'column', index: colIdx });
+        this.cardHitAreas.push({ x: rowStartX, y: ry, w: scaledCardSize, h: scaledCardSize, type: 'pile', index: pileIdx });
       } else {
-        for (let ci = 0; ci < col.length; ci++) {
-          const card = col[ci];
+        for (let ci = 0; ci < pile.length; ci++) {
+          const card = pile[ci];
           if (this.isCardInTransit(card.id)) {
-            continue; // card is currently flying to this column, avoid duplicate rendering
+            continue; // card is currently flying to this pile, avoid duplicate rendering
           }
           const cx = rowStartX + ci * ROW_OFFSET_X * cardScale;
-          const isLastCard = ci === col.length - 1;
+          const isLastCard = ci === pile.length - 1;
           this.drawCardFace(cx, ry, card, {
             validTarget: isValid && isLastCard,
             compact: true,
@@ -482,7 +482,7 @@ export class Renderer {
           if (isLastCard) {
             this.cardHitAreas.push({
               x: cx, y: ry, w: scaledCardSize, h: scaledCardSize,
-              type: 'column', index: colIdx,
+              type: 'pile', index: pileIdx,
             });
           }
         }
@@ -490,13 +490,13 @@ export class Renderer {
     }
 
     // New row slot
-    if (state.columns.length < MAX_COLUMNS) {
-      const ry = startY + state.columns.length * rowH;
-      const isValid = isPlacingPhase && validCols.includes(state.columns.length);
+    if (state.piles.length < MAX_PILES) {
+      const ry = startY + state.piles.length * rowH;
+      const isValid = isPlacingPhase && validCols.includes(state.piles.length);
       this.drawEmptySlot(rowStartX, ry, '+', isValid, true, cardScale);
       this.cardHitAreas.push({
         x: rowStartX, y: ry, w: scaledCardSize, h: scaledCardSize,
-        type: 'new_column', index: state.columns.length,
+        type: 'new_pile', index: state.piles.length,
       });
     }
 
@@ -524,7 +524,7 @@ export class Renderer {
     ctx.fillText('Deck', deckX + CARD_W / 2, deckY - 5);
 
     // Discard (clickable to discard selected card)
-    const canDiscardCard = selectedHandIndex !== null && placingHandIndex === null && state.phase === 'player_turn';
+    const canDiscardCard = selectedHandIndex !== null && state.phase === 'player_turn';
     if (state.discardPile.length > 0) {
       const topDiscard = state.discardPile[state.discardPile.length - 1];
       if (!this.isCardInTransit(topDiscard.id)) {
@@ -563,7 +563,7 @@ export class Renderer {
       }
       const hx = handAreaX + i * handSpacing;
       const isSelected = selectedHandIndex === i;
-      const isPlacing = placingHandIndex === i;
+      const isPlacing = false;
       this.drawCardFace(hx, handY, card, {
         selected: isSelected || isPlacing,
       });
@@ -697,20 +697,20 @@ export class Renderer {
     return { x: handAreaX + handIndex * handSpacing, y: this.layout.handStartY };
   }
 
-  /** Get screen position for placing a card at the end of a column row */
-  getColumnPos(colIndex: number, cardCountInCol: number, totalCols: number): { x: number; y: number } {
-    const startX = this.layout.columnsStartX;
-    const startY = this.layout.columnsStartY;
+  /** Get screen position for placing a card at the end of a pile row */
+  getPilePos(pileIndex: number, cardCountInPile: number, totalPiles: number): { x: number; y: number } {
+    const startX = this.layout.pilesStartX;
+    const startY = this.layout.pilesStartY;
     const handY = this.layout.handStartY;
     const availableH = handY - startY - 20;
-    const totalRows = Math.max(totalCols + 1, 1);
+    const totalRows = Math.max(totalPiles + 1, 1);
     const maxRowH = CARD_W + ROW_GAP;
     const rowH = Math.min(maxRowH, availableH / totalRows);
     const cardScale = Math.min(1, (rowH - ROW_GAP) / CARD_W);
     const labelW = 10;
     const rowStartX = startX + labelW;
-    const ry = startY + colIndex * rowH;
-    const cx = rowStartX + cardCountInCol * ROW_OFFSET_X * cardScale;
+    const ry = startY + pileIndex * rowH;
+    const cx = rowStartX + cardCountInPile * ROW_OFFSET_X * cardScale;
     return { x: cx, y: ry };
   }
 
@@ -741,7 +741,7 @@ export class Renderer {
     ctx.fillText(isWin ? 'Victory!' : 'Game Over', logicalW / 2, centerY);
 
     if (isWin) {
-      const rating = getWinRating(state.columns.length);
+      const rating = getWinRating(state.piles.length);
       ctx.fillStyle = '#fff';
       ctx.font = "24px 'Inter', sans-serif";
       ctx.fillText(rating, logicalW / 2, centerY + 50);
@@ -751,7 +751,7 @@ export class Renderer {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = "15px 'Inter', sans-serif";
     const stats = [
-      `Columns used: ${state.columns.length}`,
+      `Piles used: ${state.piles.length}`,
       `Turns played: ${state.turnNumber}`,
       `Cards played: ${state.cardsPlayed}`,
       `Cards discarded: ${state.cardsDiscarded}`,
@@ -860,24 +860,23 @@ export class Renderer {
       case 5:
         title = 'Step 2: Stack the Jack';
         text = 'Now click the Jack of Spades.\n\n' +
-          'Then click on the Queen pile below it.\n\n' +
-          'Cards must be same suit and lower rank.';
+          'Then click on the Queen to pile below it.\n\n' +
+          'Cards must be same suit and can be any lower rank.';
         break;
       case 6:
         title = 'Step 3: Your Options';
-        text = 'Play, discard or keep the other cards as you wish.\n\n' +
+        text = 'Select the other cards and tap the discard pile in\nthe bottom left to discard.\n\n' +
+          'You can also choose to keep them for later turns.\n\n' +
           'Click End Turn to proceed';
         break;
       case 7:
-        title = 'The Bogey\'s Turn';
-        text = 'The Bogey now draws a card and plays it.\n\n' +
-          'It will force a play, so choose wisely\n' +
-          'where to place its card!\n\n' +
-          'If it can\'t play — Game Over.';
+        title = 'The Bogey Card';
+        text = 'The Bogey forces you to play the top card of the deck.\n\n' +
+          'If it can\'t play ... Game Over!';
         break;
       default:
-        title = 'You\'ve Learned the Basics!';
-        text = 'Perfect! You now understand the game.\n\n' +
+        title = 'That\'s the Basics!';
+        text =
           'Continue playing strategically.\n\n' +
           'Good luck beating the Bogey!';
     }
