@@ -46,6 +46,8 @@ function getCanvasPos(e: MouseEvent | Touch): { x: number; y: number } {
 function handleClick(x: number, y: number): void {
   resumeAudio();
 
+  if (renderer.shareDialogVisible) return;
+
   // ── Menu ──────────────────────────────────────────────────
   if (phase() === 'menu') {
     const btn = renderer.hitTestButton(x, y);
@@ -72,6 +74,9 @@ function handleClick(x: number, y: number): void {
     if (btn?.id === 'restart') {
       playClick();
       state = { phase: 'menu' } as GameState;
+    } else if (btn?.id === 'share') {
+      playClick();
+      renderer.showShareDialog(state);
     }
     return;
   }

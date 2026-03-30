@@ -73,6 +73,7 @@ export class Renderer {
   flyingCards: FlyingCard[] = [];
   private noisePattern: CanvasPattern | null = null;
   private frameCount = 0;
+  shareDialogVisible = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -122,6 +123,116 @@ export class Renderer {
     }
     octx.putImageData(imgData, 0, 0);
     this.noisePattern = this.ctx.createPattern(offscreen, 'repeat');
+  }
+
+  showShareDialog(state: GameState): void {
+    this.shareDialogVisible = true;
+    const isWin = state.phase === 'game_won';
+    const rating = isWin ? getWinRating(state.piles.length) : 'Failed';
+    const shareText = `I just played The Bogey and ${isWin ? 'won' : 'lost'}!\n\n` +
+      `Rating: ${rating}\n\n` +
+      `Piles used: ${state.piles.length}\n` +
+      `Turns played: ${state.turnNumber}\n` +
+      `Cards played: ${state.cardsPlayed}\n` +
+      `Cards discarded: ${state.cardsDiscarded}\n` +
+      `Play at: https://esrauch.github.io/bogey/`;
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '1000';
+
+    const dialog = document.createElement('div');
+    dialog.style.backgroundColor = '#fff';
+    dialog.style.padding = '20px';
+    dialog.style.borderRadius = '8px';
+    dialog.style.maxWidth = '400px';
+    dialog.style.width = '90%';
+    dialog.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+
+    const title = document.createElement('h3');
+    title.textContent = 'Share Your Score';
+    title.style.margin = '0 0 15px 0';
+    title.style.fontFamily = "'Inter', sans-serif";
+    title.style.color = '#333';
+
+    const textarea = document.createElement('textarea');
+    textarea.value = shareText;
+    textarea.style.width = '100%';
+    textarea.style.height = '120px';
+    textarea.style.padding = '10px';
+    textarea.style.border = '1px solid #ccc';
+    textarea.style.borderRadius = '4px';
+    textarea.style.fontFamily = "'Inter', sans-serif";
+    textarea.style.resize = 'vertical';
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '10px';
+    buttonContainer.style.marginTop = '15px';
+    buttonContainer.style.justifyContent = 'flex-end';
+
+    const copyButton = document.createElement('button');
+    copyButton.textContent = 'Copy';
+    copyButton.style.padding = '8px 16px';
+    copyButton.style.backgroundColor = '#4a7c59';
+    copyButton.style.color = '#fff';
+    copyButton.style.border = 'none';
+    copyButton.style.borderRadius = '4px';
+    copyButton.style.cursor = 'pointer';
+    copyButton.style.fontFamily = "'Inter', sans-serif";
+
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Close';
+    closeButton.style.padding = '8px 16px';
+    closeButton.style.backgroundColor = '#ccc';
+    closeButton.style.color = '#333';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '4px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.fontFamily = "'Inter', sans-serif";
+
+    copyButton.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(textarea.value);
+        copyButton.textContent = 'Copied!';
+        setTimeout(() => copyButton.textContent = 'Copy', 2000);
+      } catch (err) {
+        // Fallback for older browsers
+        textarea.select();
+        document.execCommand('copy');
+        copyButton.textContent = 'Copied!';
+        setTimeout(() => copyButton.textContent = 'Copy', 2000);
+      }
+    };
+
+    closeButton.onclick = () => {
+      document.body.removeChild(modal);
+      this.shareDialogVisible = false;
+    };
+
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+        this.shareDialogVisible = false;
+      }
+    };
+
+    buttonContainer.appendChild(copyButton);
+    buttonContainer.appendChild(closeButton);
+    dialog.appendChild(title);
+    dialog.appendChild(textarea);
+    dialog.appendChild(buttonContainer);
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
   }
 
   // ── Drawing primitives ──────────────────────────────────────
@@ -763,15 +874,25 @@ export class Renderer {
       ctx.fillText(s, logicalW / 2, centerY + (isWin ? 100 : 60) + i * 28);
     });
 
-    // Play again button
-    const btnW = 180;
+    // Buttons
+    const btnW = 140;
     const btnH = 50;
-    this.buttons = [{
-      x: logicalW / 2 - btnW / 2,
-      y: logicalH * 0.78,
-      w: btnW, h: btnH,
-      label: '♠ Play Again', id: 'restart',
-    }];
+    const btnSpacing = 20;
+    const totalBtnW = btnW * 2 + btnSpacing;
+    this.buttons = [
+      {
+        x: logicalW / 2 - totalBtnW / 2,
+        y: logicalH * 0.78,
+        w: btnW, h: btnH,
+        label: '📤 Share', id: 'share',
+      },
+      {
+        x: logicalW / 2 - totalBtnW / 2 + btnW + btnSpacing,
+        y: logicalH * 0.78,
+        w: btnW, h: btnH,
+        label: 'Main menu', id: 'restart',
+      },
+    ];
     for (const btn of this.buttons) {
       this.drawButton(btn);
     }
