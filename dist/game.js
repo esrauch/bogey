@@ -1,6 +1,6 @@
 // ── Game state and logic ────────────────────────────────────
 import { Suit, Rank, createDeck, shuffleDeck } from './card.js';
-export const MAX_COLUMNS = 12;
+export const MAX_COLUMNS = 13;
 export function createGameState() {
     const handSize = 5;
     const deck = shuffleDeck(createDeck());
@@ -57,7 +57,15 @@ export function canPlayToColumn(card, column) {
     if (column.length === 0)
         return true;
     const top = column[column.length - 1];
-    return card.suit === top.suit && card.rank < top.rank;
+    if (card.suit !== top.suit)
+        return false;
+    // Standard descending order (higher rank to lower rank; Ace as low)
+    if (card.rank < top.rank)
+        return true;
+    // Allow Ace as a 'highest' card starting a pile, but no wrap around of (2 > A > K)
+    if (column.length == 1 && top.rank === Rank.Ace)
+        return true;
+    return false;
 }
 export function getValidColumns(card, columns) {
     const valid = [];

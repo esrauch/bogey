@@ -49,8 +49,7 @@ bogey/
 └── RULES.md            # Full game rules
 ```
 
-## Game Rules
+## Based on
 
-See [RULES.md](RULES.md) for the complete rules.
+The Bogey is a modified version of a game designed by Katharine Turner. Credit the original game design as published at https://boardgamegeek.com/boardgame/202723/the-bogey
 
-Credit to Katharine Turner for the original game design as published at https://boardgamegeek.com/boardgame/202723/the-bogey

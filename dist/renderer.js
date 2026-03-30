@@ -685,14 +685,16 @@ export class Renderer {
             case 1:
                 title = 'Objective of the game';
                 text = 'Your goal is to place all 52 cards into piles.\n\n' +
+                    '• You may have at most 13 piles.\n' +
                     '• Each pile may contain only one suit.\n' +
-                    '• Piles must be in descending order (K-Q-..-3-2-A).\n' +
-                    '• Aces are low. A pile doesn\'t need to be consequitive.\n' +
-                    '• You may have at most 12 piles.';
+                    '• Piles must be in descending order (A-K-Q-...-3-2-A).\n' +
+                    '• Aces can be high or low.\n' +
+                    '• A pile doesn\'t need to be consecutive.';
                 break;
             case 2:
                 title = 'Your turn';
-                text = 'At the start of each turn, your hand refills.\n\n' +
+                text = 'At the start of each turn, your hand refills.\n' +
+                    'The discard pile is reshuffled into the deck when needed.\n\n' +
                     'For every card in your hand, you have three options:\n' +
                     '• You may play it into a pile.\n' +
                     '• You may discard it.\n' +
